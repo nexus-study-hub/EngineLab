@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>EngineLab — Browser Engine Simulator</title>
+<meta name="description" content="Realistic car engine sound and manual transmission simulator running entirely in the browser via the Web Audio API." />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="app" class="env-garage">
+
+  <div class="env-streaks" id="envStreaks"></div>
+  <div class="speed-blur" id="speedBlur"></div>
+
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark">ENGINE<span>LAB</span></span>
+      <span class="tag">Browser Engine Simulator</span>
+    </div>
+
+    <div class="topbar-controls">
+      <div class="pill-toggle" id="audioModeToggle">
+        <button class="active" data-mode="exterior">Exterior</button>
+        <button data-mode="interior">Interior</button>
+      </div>
+
+      <div class="volume-wrap">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+        <input type="range" id="volumeSlider" min="0" max="100" value="80" aria-label="Volume" />
+      </div>
+
+      <button class="icon-btn" id="muteBtn" aria-label="Mute" title="Mute">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z"/></svg>
+      </button>
+
+      <button class="icon-btn" id="resetBtn" aria-label="Reset vehicle (R)" title="Reset vehicle — R">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============ MAIN LAYOUT ============ -->
+  <div class="layout">
+
+    <!-- ---------- LEFT COLUMN: car select + specs ---------- -->
+    <div class="col col-left">
+      <section class="card">
+        <div class="card-title">Select Vehicle</div>
+        <div class="car-list" id="carList"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">Specifications</div>
+        <p class="specs-blurb" id="carBlurb"></p>
+        <div class="spec-grid" id="specGrid"></div>
+      </section>
+    </div>
+
+    <!-- ---------- CENTER COLUMN: gauge cluster ---------- -->
+    <div class="col col-center">
+
+      <section class="card gauge-card" id="gaugeCard">
+        <div class="gauge-stack">
+          <svg id="tachFace" viewBox="0 0 400 400"></svg>
+          <canvas id="needleCanvas" width="400" height="400"></canvas>
+          <div class="gauge-readout">
+            <div class="rpm-num mono" id="rpmReadout">0</div>
+            <div class="rpm-lbl">RPM</div>
+            <button class="gear-badge" id="gearBadge" title="Gear indicator">N</button>
+          </div>
+          <div class="flame-fx" id="flameFx">
+            <svg viewBox="0 0 70 70" width="70" height="70">
+              <defs>
+                <radialGradient id="flameGrad" cx="50%" cy="100%" r="80%">
+                  <stop offset="0%" stop-color="#fff4cf"/>
+                  <stop offset="35%" stop-color="#ffb347"/>
+                  <stop offset="75%" stop-color="#ff5d3a" stop-opacity="0.85"/>
+                  <stop offset="100%" stop-color="#ff5d3a" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <ellipse cx="35" cy="55" rx="20" ry="26" fill="url(#flameGrad)"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="sub-gauges">
+          <div class="speed-block">
+            <div class="speed-num mono" id="speedReadout">0</div>
+            <div class="speed-unit">KM/H</div>
+          </div>
+          <div class="divider-v"></div>
+          <div class="speed-block">
+            <div class="odo mono" id="odoReadout">0.00 km</div>
+            <div class="speed-unit">DISTANCE</div>
+          </div>
+        </div>
+
+        <div class="stall-banner" id="stallBanner">Engine Stalled — Clutch In, Hold W</div>
+      </section>
+
+      <section class="card rpm-bar-card">
+        <div class="card-title">RPM Range <span class="hint" id="redlineHint">redline —</span></div>
+        <div class="rpm-bar" id="rpmBar"></div>
+        <div class="rpm-bar-labels"><span>IDLE</span><span>REDLINE</span></div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">Pedal Inputs</div>
+        <div class="pedal-row">
+          <div class="pedal">
+            <div class="lbl"><span>Throttle</span><b id="throttleVal">0%</b></div>
+            <div class="pedal-track"><div class="pedal-fill throttle" id="throttleFill"></div></div>
+          </div>
+          <div class="pedal">
+            <div class="lbl"><span>Brake</span><b id="brakeVal">0%</b></div>
+            <div class="pedal-track"><div class="pedal-fill brake" id="brakeFill"></div></div>
+          </div>
+          <div class="pedal">
+            <div class="lbl"><span>Clutch</span><b id="clutchVal">0%</b></div>
+            <div class="pedal-track"><div class="pedal-fill clutch" id="clutchFill"></div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ---------- RIGHT COLUMN: telemetry, modes, controls ---------- -->
+    <div class="col col-right">
+
+      <section class="card">
+        <div class="card-title">Telemetry</div>
+        <div class="tele-grid">
+          <div class="tele-item"><div class="v mono" id="teleMaxRpm">0</div><div class="l">Max RPM</div></div>
+          <div class="tele-item"><div class="v mono" id="teleMaxSpeed">0</div><div class="l">Top Speed</div></div>
+          <div class="tele-item"><div class="v mono" id="teleShifts">0</div><div class="l">Total Shifts</div></div>
+          <div class="tele-item"><div class="v mono" id="teleGearRatio">—</div><div class="l">Gear Ratio</div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">Drive Modes</div>
+        <div class="mode-btn-grid">
+          <button class="mode-btn" id="launchBtn">
+            Launch Control
+            <span class="k">Hold C + W, release C</span>
+          </button>
+          <button class="mode-btn" id="dynoBtn">
+            Dyno Pull
+            <span class="k">Neutral, full throttle</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="card" id="dynoCard" style="display:none;">
+        <div class="card-title">Dyno Run <span class="hint" id="dynoStatus">idle</span></div>
+        <div class="dyno-wrap">
+          <canvas id="dynoCanvas" width="600" height="220"></canvas>
+        </div>
+        <div class="dyno-readout">
+          <span id="dynoPeakPower">Peak: —</span>
+          <span id="dynoPeakRpm">@ — RPM</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">Environment</div>
+        <div class="env-select" id="envSelect">
+          <button class="active" data-env="garage">Garage</button>
+          <button data-env="highway">Highway</button>
+          <button data-env="racetrack">Racetrack</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">Engine Sound Pack</div>
+        <div class="upload-row">
+          <label for="soundUpload">Upload a custom sample (.mp3/.wav) to blend in</label>
+          <input type="file" id="soundUpload" accept="audio/*" />
+        </div>
+        <div class="upload-status" id="uploadStatus">No custom sample loaded — using synthesized engine.</div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">Controls</div>
+        <div class="keylist">
+          <div class="keyrow"><span>Accelerate</span><span class="key">W</span></div>
+          <div class="keyrow"><span>Throttle (scroll)</span><span class="key">⟳</span></div>
+          <div class="keyrow"><span>Brake</span><span class="key">S</span></div>
+          <div class="keyrow"><span>Clutch</span><span class="key">C</span></div>
+          <div class="keyrow"><span>Shift Up</span><span class="key">↑</span></div>
+          <div class="keyrow"><span>Shift Down</span><span class="key">↓</span></div>
+          <div class="keyrow"><span>Neutral Rev</span><span class="key">Space</span></div>
+          <div class="keyrow"><span>Reset Vehicle</span><span class="key">R</span></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<!-- ============ START OVERLAY ============ -->
+<div class="start-overlay" id="startOverlay">
+  <h1>ENGINE<span>LAB</span></h1>
+  <p>A browser-based engine sound and manual transmission simulator. Pick a car, start the engine, and drive with a keyboard. No graphics-heavy racing here — just RPM, torque, and the noise that comes with it.</p>
+  <button class="start-btn" id="startBtn">Start Engine</button>
+</div>
+
+<script src="cars.js"></script>
+<script src="physics.js"></script>
+<script src="audio.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
