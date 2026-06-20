@@ -336,6 +336,18 @@ button {
   height: 100%;
 }
 
+.speedo-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 14px;
+}
+.speedo-stack {
+  width: min(72%, 220px);
+  margin: 2px auto 0;
+}
+.speedo-stack .speed-num { font-size: 34px; }
+
 .gauge-readout {
   position: absolute;
   inset: 0;
