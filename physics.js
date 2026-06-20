@@ -45,6 +45,12 @@ class EngineSim {
 
   setCar(car) {
     this.car = car;
+    // Smaller-displacement engines have less reciprocating/rotating mass and
+    // genuinely rev quicker in real life, independent of how much torque they
+    // make — without this, a low-torque four-cylinder would feel artificially
+    // sluggish next to a big V8/V10 even though small revvy engines are exactly
+    // the opposite in reality.
+    this.inertiaScale = clamp(car.displacement / 4.2, 0.4, 1.6);
     this.reset();
   }
 
@@ -236,7 +242,7 @@ class EngineSim {
     const c = this.car;
     const friction = this._frictionTorque(this.rpm, throttle);
     const omega = this.rpm * (2 * Math.PI) / 60;
-    const domega = (engineTorque - friction) / (PHYSICS.ENGINE_INERTIA * 1000);
+    const domega = (engineTorque - friction) / (PHYSICS.ENGINE_INERTIA * this.inertiaScale * 1000);
     let newOmega = omega + domega * dt * 60;
     newOmega = Math.max(0, newOmega);
     let newRpm = (newOmega * 60) / (2 * Math.PI);
