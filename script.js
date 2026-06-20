@@ -31,7 +31,9 @@
     scrollThrottle: 0
   };
 
-  let needle = { value: 0, vel: 0 }; // degrees
+  let needle = { value: 0, vel: 0 }; // degrees, RPM needle
+  let speedNeedle = { value: 0, vel: 0 }; // degrees, speed needle
+  let gaugeMaxSpeed = 280;
   let lastTime = performance.now();
   let dynoActive = false;
   let dynoSamples = [];
@@ -53,6 +55,9 @@
     specGrid: $("specGrid"),
     tachFace: $("tachFace"),
     needleCanvas: $("needleCanvas"),
+    speedoFace: $("speedoFace"),
+    speedoNeedleCanvas: $("speedoNeedleCanvas"),
+    topSpeedHint: $("topSpeedHint"),
     rpmReadout: $("rpmReadout"),
     gearBadge: $("gearBadge"),
     speedReadout: $("speedReadout"),
@@ -94,6 +99,7 @@
   };
 
   const needleCtx = el.needleCanvas.getContext("2d");
+  const speedoNeedleCtx = el.speedoNeedleCanvas.getContext("2d");
 
   // ---------------------------------------------------------------
   // Utility
@@ -142,6 +148,7 @@
     audio.loadCar(car);
     buildSpecPanel(car);
     buildTachFace(car);
+    buildSpeedoFace(car);
     buildRpmBar(car);
     el.redlineHint.textContent = `redline ${car.redline.toLocaleString()}`;
     dynoSamples = [];
@@ -239,6 +246,100 @@
   function polarToCartesian(cx, cy, r, angleDeg) {
     const rad = deg2rad(angleDeg - 90);
     return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+
+  function buildSpeedoFace(car) {
+    gaugeMaxSpeed = Math.ceil((car.topSpeedKmh || 280) / 40) * 40;
+    const cx = 160, cy = 160, rOuter = 142, rTick = 128, rTickMinor = 134, rLabel = 110;
+    const sweep = ANGLE_MAX - ANGLE_MIN;
+    const majorStep = gaugeMaxSpeed <= 240 ? 20 : 40;
+    const steps = gaugeMaxSpeed / majorStep;
+
+    let svg = `
+      <defs>
+        <radialGradient id="speedoFaceGrad" cx="50%" cy="42%" r="70%">
+          <stop offset="0%" stop-color="#1c1f26"/>
+          <stop offset="100%" stop-color="#0c0d10"/>
+        </radialGradient>
+      </defs>
+      <circle cx="${cx}" cy="${cy}" r="${rOuter}" fill="url(#speedoFaceGrad)" stroke="#2a2e36" stroke-width="2"/>
+    `;
+
+    for (let i = 0; i <= steps; i++) {
+      const frac = i / steps;
+      const angle = ANGLE_MIN + frac * sweep;
+      const rad = deg2rad(angle - 90);
+      const x1 = cx + rTick * Math.cos(rad);
+      const y1 = cy + rTick * Math.sin(rad);
+      const x2 = cx + rOuter * 0.95 * Math.cos(rad);
+      const y2 = cy + rOuter * 0.95 * Math.sin(rad);
+      svg += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#9aa1ab" stroke-width="2.5" stroke-linecap="round"/>`;
+
+      const lx = cx + rLabel * Math.cos(rad);
+      const ly = cy + rLabel * Math.sin(rad);
+      svg += `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" text-anchor="middle" font-family="Rajdhani" font-weight="700" font-size="12" fill="#cfd3d8">${i * majorStep}</text>`;
+
+      if (i < steps) {
+        const minorTicks = majorStep === 20 ? 1 : 3;
+        for (let m = 1; m <= minorTicks; m++) {
+          const mfrac = (i + m / (minorTicks + 1)) / steps;
+          const mangle = ANGLE_MIN + mfrac * sweep;
+          const mrad = deg2rad(mangle - 90);
+          const mx1 = cx + rTickMinor * Math.cos(mrad);
+          const my1 = cy + rTickMinor * Math.sin(mrad);
+          const mx2 = cx + rOuter * 0.92 * Math.cos(mrad);
+          const my2 = cy + rOuter * 0.92 * Math.sin(mrad);
+          svg += `<line x1="${mx1.toFixed(1)}" y1="${my1.toFixed(1)}" x2="${mx2.toFixed(1)}" y2="${my2.toFixed(1)}" stroke="#3a3f48" stroke-width="1.2"/>`;
+        }
+      }
+    }
+
+    svg += `<text x="${cx}" y="${cy + 70}" text-anchor="middle" font-family="Inter" font-size="9" letter-spacing="1.5" fill="#5e6470">KM/H</text>`;
+
+    el.speedoFace.innerHTML = svg;
+    el.topSpeedHint.textContent = `top ~${car.topSpeedKmh} km/h`;
+  }
+
+  function updateSpeedNeedle(dt, speedKmh) {
+    const sweep = ANGLE_MAX - ANGLE_MIN;
+    const frac = clamp(speedKmh / gaugeMaxSpeed, 0, 1.05);
+    const targetAngle = ANGLE_MIN + frac * sweep;
+    const k = 180, c = 22;
+    const force = (targetAngle - speedNeedle.value) * k - speedNeedle.vel * c;
+    speedNeedle.vel += force * dt;
+    speedNeedle.value += speedNeedle.vel * dt;
+  }
+
+  function drawSpeedNeedle() {
+    const ctx = speedoNeedleCtx;
+    ctx.clearRect(0, 0, 320, 320);
+    const cx = 160, cy = 160;
+    const rad = deg2rad(speedNeedle.value - 90);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rad + Math.PI / 2);
+    const needleColor = "#e8ebee"; // neutral, distinct from the accent-colored RPM needle
+
+    ctx.shadowColor = needleColor;
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = needleColor;
+    ctx.beginPath();
+    ctx.moveTo(-3, 11);
+    ctx.lineTo(3, 11);
+    ctx.lineTo(1.6, -118);
+    ctx.lineTo(-1.6, -118);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.fillStyle = "#0c0d10";
+    ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = needleColor;
+    ctx.stroke();
   }
 
   function buildRpmBar() {
@@ -604,6 +705,8 @@
     updateDyno(dt, snap);
     updateNeedle(dt, snap.rpmFrac, snap.limiterActive);
     drawNeedle();
+    updateSpeedNeedle(dt, snap.speedKmh);
+    drawSpeedNeedle();
     renderUI(snap);
 
     requestAnimationFrame(loop);
@@ -666,6 +769,7 @@
     buildCarList();
     buildSpecPanel(currentCar);
     buildTachFace(currentCar);
+    buildSpeedoFace(currentCar);
     buildRpmBar();
     el.redlineHint.textContent = `redline ${currentCar.redline.toLocaleString()}`;
     bindInput();
@@ -674,6 +778,7 @@
     bindAudioControls();
     bindStart();
     needle.value = ANGLE_MIN;
+    speedNeedle.value = ANGLE_MIN;
   }
 
   init();

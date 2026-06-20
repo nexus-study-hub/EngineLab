@@ -62,44 +62,48 @@
     <!-- ---------- CENTER COLUMN: gauge cluster ---------- -->
     <div class="col col-center">
 
-      <section class="card gauge-card" id="gaugeCard">
-        <div class="gauge-stack">
-          <svg id="tachFace" viewBox="0 0 400 400"></svg>
-          <canvas id="needleCanvas" width="400" height="400"></canvas>
-          <div class="gauge-readout">
-            <div class="rpm-num mono" id="rpmReadout">0</div>
-            <div class="rpm-lbl">RPM</div>
-            <button class="gear-badge" id="gearBadge" title="Gear indicator">N</button>
+      <div style="display:flex; gap:16px; align-items:stretch; width:100%;">
+        <section class="card gauge-card" id="gaugeCard" style="flex:1 1 0; min-width:0;">
+          <div class="card-title">Tachometer</div>
+          <div class="gauge-stack">
+            <svg id="tachFace" viewBox="0 0 400 400"></svg>
+            <canvas id="needleCanvas" width="400" height="400"></canvas>
+            <div class="gauge-readout">
+              <div class="rpm-num mono" id="rpmReadout">0</div>
+              <div class="rpm-lbl">RPM</div>
+              <button class="gear-badge" id="gearBadge" title="Gear indicator">N</button>
+            </div>
+            <div class="flame-fx" id="flameFx">
+              <svg viewBox="0 0 70 70" width="70" height="70">
+                <defs>
+                  <radialGradient id="flameGrad" cx="50%" cy="100%" r="80%">
+                    <stop offset="0%" stop-color="#fff4cf"/>
+                    <stop offset="35%" stop-color="#ffb347"/>
+                    <stop offset="75%" stop-color="#ff5d3a" stop-opacity="0.85"/>
+                    <stop offset="100%" stop-color="#ff5d3a" stop-opacity="0"/>
+                  </radialGradient>
+                </defs>
+                <ellipse cx="35" cy="55" rx="20" ry="26" fill="url(#flameGrad)"/>
+              </svg>
+            </div>
           </div>
-          <div class="flame-fx" id="flameFx">
-            <svg viewBox="0 0 70 70" width="70" height="70">
-              <defs>
-                <radialGradient id="flameGrad" cx="50%" cy="100%" r="80%">
-                  <stop offset="0%" stop-color="#fff4cf"/>
-                  <stop offset="35%" stop-color="#ffb347"/>
-                  <stop offset="75%" stop-color="#ff5d3a" stop-opacity="0.85"/>
-                  <stop offset="100%" stop-color="#ff5d3a" stop-opacity="0"/>
-                </radialGradient>
-              </defs>
-              <ellipse cx="35" cy="55" rx="20" ry="26" fill="url(#flameGrad)"/>
-            </svg>
-          </div>
-        </div>
 
-        <div class="sub-gauges">
-          <div class="speed-block">
-            <div class="speed-num mono" id="speedReadout">0</div>
-            <div class="speed-unit">KM/H</div>
-          </div>
-          <div class="divider-v"></div>
-          <div class="speed-block">
-            <div class="odo mono" id="odoReadout">0.00 km</div>
-            <div class="speed-unit">DISTANCE</div>
-          </div>
-        </div>
+          <div class="stall-banner" id="stallBanner">Engine Stalled — Clutch In, Hold W</div>
+        </section>
 
-        <div class="stall-banner" id="stallBanner">Engine Stalled — Clutch In, Hold W</div>
-      </section>
+        <section class="card speedo-card" style="flex:1 1 0; min-width:0;">
+          <div class="card-title">Speedometer <span class="hint" id="topSpeedHint">top —</span></div>
+          <div class="gauge-stack">
+            <svg id="speedoFace" viewBox="0 0 320 320"></svg>
+            <canvas id="speedoNeedleCanvas" width="320" height="320"></canvas>
+            <div class="gauge-readout">
+              <div class="speed-num mono" id="speedReadout">0</div>
+              <div class="rpm-lbl">KM/H</div>
+            </div>
+            <div class="odo mono" id="odoReadout" style="position:absolute; bottom:6px; left:50%; transform:translateX(-50%); pointer-events:none;">0.00 km</div>
+          </div>
+        </section>
+      </div>
 
       <section class="card rpm-bar-card">
         <div class="card-title">RPM Range <span class="hint" id="redlineHint">redline —</span></div>
